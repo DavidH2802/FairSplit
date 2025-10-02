@@ -78,7 +78,7 @@ Edge cases: zero expenses, negative input, single-member groups
 
 (Optional) You may add unit tests in the future for helpers.py functions
 
-🛡️ License & Attribution
+# License & Attribution
 
 This project is released under the MIT License.
 Built as part of CS50’s Week 10 final project (Harvard’s Introduction to Computer Science course).
