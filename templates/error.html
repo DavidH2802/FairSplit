@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+
+{% block title %}Error {{ code }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column align-items-center justify-content-center" style="min-height:60vh;">
+    <div class="card shadow-sm text-center p-4" style="max-width: 500px; width: 100%;">
+        <h1 class="display-4 text-danger">{{ code }}</h1>
+        <p class="lead mb-4">{{ message }}</p>
+        <a href="/" class="btn btn-primary">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

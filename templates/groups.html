@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+
+{% block title %}My Groups{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">My Groups</h2>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" id="groupsTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="groups-tab" data-bs-toggle="tab"
+                    data-bs-target="#groups" type="button" role="tab"
+                    aria-controls="groups" aria-selected="true">
+                Groups
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="invites-tab" data-bs-toggle="tab"
+                    data-bs-target="#invites" type="button" role="tab"
+                    aria-controls="invites" aria-selected="false">
+                Pending Invites
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content mt-3" id="groupsTabsContent">
+        <!-- Groups tab -->
+            <div class="tab-pane fade show active" id="groups" role="tabpanel" aria-labelledby="groups-tab">
+                {% if groups %}
+                    <ul class="list-group mb-4">
+                        {% for group in groups %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ group["name"] }}
+                                <div>
+                                    <!-- Remove Group Button (only for creator) -->
+                                    {% if group["group_creator"] == 1 %}
+                                        <form action="/groups/{{ group['id'] }}/remove" method="post" style="display:inline;">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger me-2">Remove</button>
+                                        </form>
+                                    {% endif %}
+                                    <a href="/groups/{{ group['id'] }}" class="btn btn-sm btn-outline-primary">View</a>
+                                    <!-- Invite Friend Button -->
+                                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#inviteModal-{{ group['id'] }}">
+                                    Invite Friend
+                                    </button>
+                                </div>
+                            </li>
+
+                            <!-- Invite Modal for this group -->
+                            <div class="modal fade" id="inviteModal-{{ group['id'] }}" tabindex="-1" aria-labelledby="inviteModalLabel-{{ group['id'] }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                <form action="/groups/{{ group['id'] }}/invite" method="post">
+                                    <div class="modal-header">
+                                    <h5 class="modal-title" id="inviteModalLabel-{{ group['id'] }}">Invite Friend to {{ group["name"] }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                    <input type="text" class="form-control" name="username" placeholder="Enter username" autoselect autocomplete="off" required>
+                                    </div>
+                                    <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">Send Invite</button>
+                                    </div>
+                                </form>
+                                </div>
+                            </div>
+                            </div>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">You are not in any groups yet.</p>
+                {% endif %}
+                    <!-- Create group form -->
+                <div class="card p-3 shadow-sm">
+                    <h5 class="card-title">Create a new group</h5>
+                    <form action="/groups/create" method="post" class="row g-3">
+                        <div class="col-md-8">
+                            <input type="text" class="form-control" name="groupname"
+                                placeholder="Group name" autocomplete="off" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-success w-100">Create</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invites tab -->
+        <div class="tab-pane fade" id="invites" role="tabpanel" aria-labelledby="invites-tab">
+            {% if invites %}
+                <ul class="list-group">
+                    {% for invite in invites %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ invite["group_name"] }}
+                            <div>
+                                <form action="/groups/accept" method="post" style="display:inline;">
+                                    <input type="hidden" name="invite_id" value="{{ invite['id'] }}">
+                                    <button type="submit" class="btn btn-sm btn-primary">Accept</button>
+                                </form>
+                                <form action="/groups/decline" method="post" style="display:inline;">
+                                    <input type="hidden" name="invite_id" value="{{ invite['id'] }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
+                                </form>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">No pending invites.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

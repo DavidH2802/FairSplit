@@ -1,0 +1,111 @@
+{% extends "layout.html" %}
+
+{% block title %}Group: {{ group["name"] }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Group: {{ group["name"] }}</h2>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" id="groupTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="members-tab" data-bs-toggle="tab"
+                    data-bs-target="#members" type="button" role="tab"
+                    aria-controls="members" aria-selected="true">
+                Members
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="expenses-tab" data-bs-toggle="tab"
+                    data-bs-target="#expenses" type="button" role="tab"
+                    aria-controls="expenses" aria-selected="false">
+                Expenses
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content mt-3" id="groupTabsContent">
+        <!-- Members tab -->
+        <div class="tab-pane fade show active" id="members" role="tabpanel" aria-labelledby="members-tab">
+            {% if members %}
+                <ul class="list-group">
+                    {% for member in members %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                {{ member["username"] }}
+                                {% if balances[member["id"]] %}
+                                    <small class="text-muted ms-2">
+                                        {% if balances[member["id"]] < 0 %}
+                                            You owe {{ -balances[member["id"]] | round(2) | usd }} to {{ member["username"] }}
+                                        {% elif balances[member["id"]] > 0 %}
+                                            {{ member["username"] }} owes you {{ balances[member["id"]] | round(2) | usd }}
+                                            <form action="/groups/{{ group['id'] }}/settle" method="post" style="display:inline;">
+                                            <input type="hidden" name="payee_id" value="{{ member['id'] }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-success ms-2">Settled</button>
+                                            </form>
+                                        {% else %}
+                                            Settled up
+                                        {% endif %}
+                                    </small>
+                                {% endif %}
+                
+
+                            {% if is_creator and member["id"] != current_user_id %}
+                                <form action="/groups/{{ group['id'] }}/remove" method="post" style="display:inline;">
+                                    <input type="hidden" name="member_id" value="{{ member['id'] }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove Member</button>
+                                </form>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">No members in this group yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- Expenses tab -->
+        <div class="tab-pane fade" id="expenses" role="tabpanel" aria-labelledby="expenses-tab">
+            <h5 class="mb-3">Expenses</h5>
+            {% if transactions %}
+                <ul class="list-group mb-4">
+                    {% for transaction in transactions %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                {{ transaction["description"] }} | {{ transaction["amount"] | usd }}  
+                                <small class="text-muted">added by {{ transaction["added_by"] }}</small>
+                            </div>
+                            <div>
+                                {% if transaction["payer_id"] == current_user_id %}
+                                    <form action="/groups/{{ group['id'] }}/expenses/{{ transaction['id'] }}/remove" 
+                                        method="post" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">No expenses yet.</p>
+            {% endif %}
+
+            <!-- Add expense form -->
+            <div class="card p-3 shadow-sm">
+                <h5 class="card-title">Add a new expense</h5>
+                <form action="/groups/{{ group['id'] }}/expenses/add" method="post" class="row g-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" name="description" placeholder="Description" required>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="number" step="0.01" class="form-control" name="amount" placeholder="Amount" required>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-success w-100">Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
