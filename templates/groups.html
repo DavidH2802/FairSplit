@@ -36,6 +36,7 @@
                                     <!-- Remove Group Button (only for creator) -->
                                     {% if group["group_creator"] == 1 %}
                                         <form action="/groups/{{ group['id'] }}/remove" method="post" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <button type="submit" class="btn btn-sm btn-outline-danger me-2">Remove</button>
                                         </form>
                                     {% endif %}
@@ -52,6 +53,7 @@
                             <div class="modal-dialog">
                                 <div class="modal-content">
                                 <form action="/groups/{{ group['id'] }}/invite" method="post">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <div class="modal-header">
                                     <h5 class="modal-title" id="inviteModalLabel-{{ group['id'] }}">Invite Friend to {{ group["name"] }}</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -76,6 +78,7 @@
                 <div class="card p-3 shadow-sm">
                     <h5 class="card-title">Create a new group</h5>
                     <form action="/groups/create" method="post" class="row g-3">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="col-md-8">
                             <input type="text" class="form-control" name="groupname"
                                 placeholder="Group name" autocomplete="off" required>
@@ -98,10 +101,12 @@
                             <div>
                                 <form action="/groups/accept" method="post" style="display:inline;">
                                     <input type="hidden" name="invite_id" value="{{ invite['id'] }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-primary">Accept</button>
                                 </form>
                                 <form action="/groups/decline" method="post" style="display:inline;">
                                     <input type="hidden" name="invite_id" value="{{ invite['id'] }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
                                 </form>
                             </div>

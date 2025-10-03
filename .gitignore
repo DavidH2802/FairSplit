@@ -1,1 +1,18 @@
+# Python
+__pycache__/
+
+# Environment
+.env
+venv/
+.venv/
+
+# Flask instance folder (db, configs, etc.)
+instance/
+*.db
+*.sqlite3
 /flask_session
+
+# IDE/editor stuff
+.vscode/
+.idea/
+

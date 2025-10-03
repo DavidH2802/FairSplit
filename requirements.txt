@@ -1,3 +1,8 @@
 Flask
-sqlite3
 flask_session
+python-dotenv
+flask-sqlalchemy
+flask_limiter
+flask_wtf
+flask_migrate
+pytest

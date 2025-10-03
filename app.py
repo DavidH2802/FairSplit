@@ -1,17 +1,34 @@
 import flask
+import os
+from dotenv import load_dotenv
 from flask_session import Session
+from flask_sqlalchemy import SQLAlchemy
 import helpers
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect, CSRFError
+from flask_migrate import Migrate
 
+load_dotenv()
 app = flask.Flask(__name__)
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 
-if __name__ == "__main__":
-    app.run(debug=True)
-
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///fairsplit.db"
+app.config["SESSION_TYPE"] = "sqlalchemy"
 app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_USE_SIGNER"] = True
+
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+app.config["SESSION_SQLALCHEMY"] = db
+
 Session(app)
+
+csrf = CSRFProtect(app)
+
+limiter = Limiter(get_remote_address, app=app, default_limits=["600 per day", "150 per hour"])
 
 app.jinja_env.filters["usd"] = helpers.usd
 
@@ -22,6 +39,10 @@ def after_request(response):
     response.headers["Expires"] = 0
     response.headers["Pragma"] = "no-cache"
     return response
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    return flask.render_template("csrf_error.html", reason=e.description), 400
 
 @app.route("/")
 @helpers.login_required
@@ -68,6 +89,11 @@ def register():
             return helpers.error("must provide password", 403)
         elif password != confirmation:
             return helpers.error("passwords must match", 403)
+        
+        if len(password) < 8:
+            return helpers.error("password must be at least 8 characters long", 403)
+        if not any(x.isupper() for x in password):
+            return helpers.error("Password must contain an uppercase letter", 403)
 
         with helpers.get_db() as conn:
             cursor = conn.cursor()
@@ -171,18 +197,15 @@ def view_group(group_id):
     members = cursor.execute("SELECT users.username, users.id FROM memberships JOIN users ON memberships.user_id = users.id WHERE memberships.group_id = ?", (group_id,)).fetchall()
     if not members:
         return helpers.error("no members in this group", 404)
+    if flask.session["user_id"] not in [m["id"] for m in members]:
+        return helpers.error("you are not a member of this group", 403)
     
     member_count = len(members)
     if member_count <= 1:
         return helpers.error("group must have at least 2 members to split expenses", 400)
-        
-    balances = {member["id"]: 0 for member in members}
-
-    for loan in cursor.execute("SELECT * FROM loans WHERE group_id = ? AND payer_id = ?", (group_id, flask.session["user_id"])).fetchall():
-        balances[loan["payee_id"]] += loan["amount"]
-
-    for loan in cursor.execute("SELECT * FROM loans WHERE group_id = ? AND payee_id = ?", (group_id, flask.session["user_id"])).fetchall():
-        balances[loan["payer_id"]] -= loan["amount"]
+    
+    loans = cursor.execute("SELECT * FROM loans WHERE group_id = ?", (group_id,)).fetchall()
+    balances = helpers.calculate_balances(loans, flask.session["user_id"], members)
 
     tmp = cursor.execute("SELECT group_creator FROM memberships WHERE user_id = ? AND group_id = ?", (flask.session["user_id"], group_id)).fetchone()
     if not tmp:
@@ -258,10 +281,12 @@ def add_expense(group_id):
         transaction_id = cursor.lastrowid
 
         members = cursor.execute("SELECT users.id FROM memberships JOIN users ON memberships.user_id = users.id WHERE memberships.group_id = ?", (group_id,)).fetchall()
-        for member in members:
-            if member["id"] != flask.session["user_id"]:
-                cursor.execute("INSERT INTO loans (payer_id, payee_id, amount, transaction_id, group_id) VALUES (?, ?, ?, ?, ?)", (flask.session["user_id"], member["id"], amount / (len(members) - 1), transaction_id, group_id))
-        
+        try:
+            loans = helpers.split_expense(amount, members, flask.session["user_id"])
+        except ValueError as e:
+            return helpers.error(str(e), 403)
+        for loan in loans:
+            cursor.execute("INSERT INTO loans (payer_id, payee_id, amount, transaction_id, group_id) VALUES (?, ?, ?, ?, ?)", (loan[0], loan[1], loan[2], transaction_id, group_id))
         cursor.connection.commit()
         return flask.redirect(f"/groups/{group_id}")
 
@@ -321,25 +346,6 @@ def remove_expense(group_id, transaction_id):
 
         cursor.execute("DELETE FROM loans WHERE transaction_id = ?", (transaction_id,))
         cursor.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
-    
-        group = cursor.execute("SELECT * FROM groups WHERE id = ?", (group_id,)).fetchone()
-        if not group:
-            return helpers.error("group does not exist", 404)
-
-        is_member = cursor.execute("SELECT * FROM memberships WHERE user_id = ? AND group_id = ?", (flask.session["user_id"], group_id)).fetchone()
-        if not is_member:
-            return helpers.error("you are not a member of this group", 403)
-
-        transaction = cursor.execute("SELECT * FROM transactions WHERE id = ? AND group_id = ?", (transaction_id, group_id)).fetchone()
-        if not transaction:
-            return helpers.error("transaction does not exist", 404)
-
-        if transaction["payer_id"] != flask.session["user_id"]:
-            return helpers.error("you are not the payer of this transaction", 403)
-
-        cursor.execute("DELETE FROM loans WHERE transaction_id = ?", (transaction_id,))
-        cursor.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
-        cursor.connection.commit()
 
         return flask.redirect(f"/groups/{group_id}")
 
@@ -417,6 +423,11 @@ def change_password():
         
         if current_password == new_password:
             return helpers.error("new password must be different from current password", 403)
+        
+        if len(new_password) < 8:
+            return helpers.error("password must be at least 8 characters long", 403)
+        if not any(x.isupper() for x in new_password):
+            return helpers.error("Password must contain an uppercase letter", 403)
 
         if new_password != confirmation:
             return helpers.error("new passwords must match", 403)
@@ -427,3 +438,7 @@ def change_password():
         return flask.redirect("/profile")
 
     return flask.render_template("change_password.html")
+
+if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()

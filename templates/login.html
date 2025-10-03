@@ -7,6 +7,7 @@
     <div class="card shadow-sm p-4" style="max-width: 400px; width: 100%;">
         <h2 class="text-center mb-4">Login</h2>
         <form action="/login" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <!-- Username -->
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>

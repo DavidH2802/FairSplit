@@ -40,8 +40,9 @@
                                         {% elif balances[member["id"]] > 0 %}
                                             {{ member["username"] }} owes you {{ balances[member["id"]] | round(2) | usd }}
                                             <form action="/groups/{{ group['id'] }}/settle" method="post" style="display:inline;">
-                                            <input type="hidden" name="payee_id" value="{{ member['id'] }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-success ms-2">Settled</button>
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <input type="hidden" name="payee_id" value="{{ member['id'] }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-success ms-2">Settled</button>
                                             </form>
                                         {% else %}
                                             Settled up
@@ -52,6 +53,7 @@
 
                             {% if is_creator and member["id"] != current_user_id %}
                                 <form action="/groups/{{ group['id'] }}/remove" method="post" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="member_id" value="{{ member['id'] }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">Remove Member</button>
                                 </form>
@@ -79,6 +81,7 @@
                                 {% if transaction["payer_id"] == current_user_id %}
                                     <form action="/groups/{{ group['id'] }}/expenses/{{ transaction['id'] }}/remove" 
                                         method="post" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                                     </form>
                                 {% endif %}
@@ -94,6 +97,7 @@
             <div class="card p-3 shadow-sm">
                 <h5 class="card-title">Add a new expense</h5>
                 <form action="/groups/{{ group['id'] }}/expenses/add" method="post" class="row g-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="col-md-6">
                         <input type="text" class="form-control" name="description" placeholder="Description" required>
                     </div>
